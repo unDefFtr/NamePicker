@@ -31,11 +31,7 @@ Future<void> main() async {
     databaseFactory = databaseFactoryFfi;
     await windowManager.ensureInitialized();
     await windowManager.waitUntilReadyToShow();
-    if (Platform.isMacOS) {
-      await windowManager.setTitleBarStyle(TitleBarStyle.normal);
-    } else {
-      await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
-    }
+    await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
     await windowManager.setSize(const Size(900, 600));
     await windowManager.setMinimumSize(const Size(600, 400));
     await windowManager.center();
@@ -248,43 +244,46 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   var selectedIndex = 0;
+  late final PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: selectedIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     var colorScheme = Theme.of(context).colorScheme;
 
-    Widget page;
-    switch (selectedIndex) {
-      case 0:
-        page = GeneratorPage();
-        break;
-      case 1:
-        page = NameListPage();
-        break;
-      case 2:
-        page = SettingsPage();
-        break;
-      case 3:
-        page = AboutPage();
-        break;
-      default:
-        throw UnimplementedError('no widget for $selectedIndex');
-    }
+    final pages = [
+      GeneratorPage(),
+      NameListPage(),
+      SettingsPage(),
+      AboutPage(),
+    ];
 
     // The container for the current page, with its background color
     // and subtle switching animation.
     var mainArea = ColoredBox(
       color: colorScheme.surfaceContainerHighest,
-      child: AnimatedSwitcher(
-        duration: Duration(milliseconds: 200),
-        child: page,
+      child: PageView(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
+        children: pages,
       ),
     );
 
     return Scaffold(
       body: Column(
         children: [
-          if (!Platform.isMacOS & !Platform.isAndroid) CustomTitleBar(),
+          if (!Platform.isAndroid & !Platform.isIOS) CustomTitleBar(),
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -319,6 +318,11 @@ class _MyHomePageState extends State<MyHomePage> {
                             setState(() {
                               selectedIndex = value;
                             });
+                            _pageController.animateToPage(
+                              value,
+                              duration: const Duration(milliseconds: 677),
+                              curve: Curves.fastLinearToSlowEaseIn,
+                            );
                           },
                           backgroundColor: colorScheme.surface,
                           selectedItemColor: colorScheme.primary,
@@ -359,6 +363,11 @@ class _MyHomePageState extends State<MyHomePage> {
                             setState(() {
                               selectedIndex = value;
                             });
+                            _pageController.animateToPage(
+                              value,
+                              duration: const Duration(milliseconds: 677),
+                              curve: Curves.fastLinearToSlowEaseIn,
+                            );
                           },
                         ),
                       ),
@@ -408,7 +417,7 @@ class CustomTitleBar extends StatelessWidget {
         ),
         child: Row(
           children: [
-            SizedBox(width: 12),
+            SizedBox(width: Platform.isMacOS ? 76 : 12),
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: Image.asset(
@@ -431,33 +440,35 @@ class CustomTitleBar extends StatelessWidget {
             SizedBox(width: 8),
             Container(width: 1, height: 20, color: colorScheme.outlineVariant),
             Spacer(),
-            _TitleBarButton(
-              icon: Icons.minimize,
-              tooltip: '最小化',
-              onTap: () => windowManager.minimize(),
-              color: colorScheme.onSurfaceVariant,
-            ),
-            _TitleBarButton(
-              icon: Icons.crop_square,
-              tooltip: '最大化/还原',
-              onTap: () async {
-                bool isMax = await windowManager.isMaximized();
-                if (isMax) {
-                  await windowManager.unmaximize();
-                } else {
-                  await windowManager.maximize();
-                }
-              },
-              color: colorScheme.onSurfaceVariant,
-            ),
-            _TitleBarButton(
-              icon: Icons.close,
-              tooltip: '关闭',
-              onTap: () => windowManager.close(),
-              color: colorScheme.error,
-              hoverColor: colorScheme.errorContainer,
-            ),
-            SizedBox(width: 8),
+            if (!Platform.isMacOS) ...[
+              _TitleBarButton(
+                icon: Icons.minimize,
+                tooltip: '最小化',
+                onTap: () => windowManager.minimize(),
+                color: colorScheme.onSurfaceVariant,
+              ),
+              _TitleBarButton(
+                icon: Icons.crop_square,
+                tooltip: '最大化/还原',
+                onTap: () async {
+                  bool isMax = await windowManager.isMaximized();
+                  if (isMax) {
+                    await windowManager.unmaximize();
+                  } else {
+                    await windowManager.maximize();
+                  }
+                },
+                color: colorScheme.onSurfaceVariant,
+              ),
+              _TitleBarButton(
+                icon: Icons.close,
+                tooltip: '关闭',
+                onTap: () => windowManager.close(),
+                color: colorScheme.error,
+                hoverColor: colorScheme.errorContainer,
+              ),
+              SizedBox(width: 8),
+            ],
           ],
         ),
       ),
